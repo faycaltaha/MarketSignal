@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MarketSignal — Tableau de bord du risque</title>
+<style>
+  .viz-root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --series-1: #2a78d6;
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #d03b3b;
+    --border: rgba(11, 11, 11, 0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --gridline: #2c2c2a;
+      --baseline: #383835;
+      --series-1: #3987e5;
+      --border: rgba(255, 255, 255, 0.10);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body.viz-root {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; font-weight: 650; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .card .label { font-size: 12px; color: var(--text-secondary); }
+  .card .value { font-size: 32px; font-weight: 650; margin-top: 6px; }
+  .card .hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .chart-card { margin-top: 12px; }
+  .chart-card h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .alerts { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .alert {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .alert .sev { font-weight: 650; font-size: 12px; white-space: nowrap; }
+  .alert.critical { border-left-color: var(--status-critical); }
+  .alert.critical .sev { color: var(--status-critical); }
+  .alert.warning { border-left-color: var(--status-serious); }
+  .alert.warning .sev { color: var(--status-serious); }
+  .alert.info { border-left-color: var(--status-good); }
+  .alert.info .sev { color: var(--status-good); }
+  #chart-wrap { position: relative; }
+  #tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    display: none;
+    white-space: nowrap;
+  }
+  #tooltip .tt-date { color: var(--text-secondary); }
+  svg text { font-family: inherit; font-size: 11px; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+  details.table-view { margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+  details.table-view table { border-collapse: collapse; margin-top: 8px; }
+  details.table-view td, details.table-view th {
+    border: 1px solid var(--gridline);
+    padding: 3px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body class="viz-root">
+  <h1>MarketSignal</h1>
+  <p class="subtitle">Anticipation des crises — dernière mise à jour : <span id="date"></span></p>
+
+  <div class="grid" id="tiles"></div>
+
+  <div class="card chart-card">
+    <h2>Score de risque composite — 180 derniers jours</h2>
+    <div id="chart-wrap">
+      <svg id="chart" width="100%" height="240" role="img"
+           aria-label="Évolution du score de risque composite sur les 180 derniers jours"></svg>
+      <div id="tooltip"></div>
+    </div>
+    <details class="table-view">
+      <summary>Afficher les données (tableau)</summary>
+      <table id="data-table"><thead><tr><th>Date</th><th>Score</th></tr></thead><tbody></tbody></table>
+    </details>
+  </div>
+
+  <h2 style="font-size:14px;font-weight:600;margin-top:20px;">Alertes</h2>
+  <div class="alerts" id="alerts"></div>
+
+<script>
+  const DATA = __PAYLOAD__;
+
+  document.getElementById("date").textContent = DATA.date;
+
+  const LEVEL_HINTS = {
+    "faible": "Situation normale",
+    "modéré": "Vigilance recommandée",
+    "élevé": "Surveillance quotidienne",
+    "critique": "Plan de crise à activer",
+  };
+  const tiles = [
+    { label: "Score de risque", value: DATA.score.toFixed(0) + "/100", hint: "Niveau " + DATA.level + " — " + (LEVEL_HINTS[DATA.level] || "") },
+    { label: "Probabilité de crise (modèle)", value: (DATA.probability * 100).toFixed(0) + " %", hint: "Drawdown sévère sur l'horizon du modèle" },
+    { label: "Volatilité annualisée", value: (DATA.indicators.volatility * 100).toFixed(1) + " %", hint: "Fenêtre 20 jours" },
+    { label: "Drawdown depuis le pic", value: (DATA.indicators.drawdown * 100).toFixed(1) + " %", hint: "Plus haut sur 1 an" },
+    { label: "Corrélation moyenne", value: DATA.indicators.mean_correlation.toFixed(2), hint: "Entre actifs, 60 jours" },
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(t =>
+    `<div class="card"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="hint">${t.hint}</div></div>`
+  ).join("");
+
+  const SEV_LABEL = { critical: "CRITIQUE", warning: "ATTENTION", info: "INFO" };
+  document.getElementById("alerts").innerHTML = DATA.alerts.map(a =>
+    `<div class="alert ${a.severity}"><span class="sev">⚠ ${SEV_LABEL[a.severity] || a.severity}</span><span>${a.message}</span></div>`
+  ).join("");
+
+  // ---- Graphique en ligne (série unique : pas de légende, le titre la nomme) ----
+  const svg = document.getElementById("chart");
+  const wrap = document.getElementById("chart-wrap");
+  const tooltip = document.getElementById("tooltip");
+  const dates = DATA.history.dates, scores = DATA.history.scores;
+
+  function css(name) {
+    return getComputedStyle(document.body).getPropertyValue(name).trim();
+  }
+
+  function draw() {
+    const W = wrap.clientWidth, H = 240;
+    const m = { top: 12, right: 16, bottom: 24, left: 36 };
+    const iw = W - m.left - m.right, ih = H - m.top - m.bottom;
+    const x = i => m.left + (dates.length > 1 ? i / (dates.length - 1) : 0.5) * iw;
+    const y = v => m.top + (1 - v / 100) * ih;
+
+    let parts = "";
+    // Grille horizontale discrète + graduations 0/25/50/75/100
+    for (const v of [0, 25, 50, 75, 100]) {
+      parts += `<line x1="${m.left}" y1="${y(v)}" x2="${W - m.right}" y2="${y(v)}" stroke="${css('--gridline')}" stroke-width="1"/>`;
+      parts += `<text x="${m.left - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    }
+    // Graduations temporelles : première, médiane, dernière
+    const ticks = dates.length > 2 ? [0, Math.floor(dates.length / 2), dates.length - 1] : [0, dates.length - 1];
+    for (const i of ticks) {
+      const anchor = i === 0 ? "start" : (i === dates.length - 1 ? "end" : "middle");
+      parts += `<text x="${x(i)}" y="${H - 6}" text-anchor="${anchor}">${dates[i]}</text>`;
+    }
+    // Ligne de la série (2px)
+    const path = scores.map((s, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(s).toFixed(1)}`).join("");
+    parts += `<path d="${path}" fill="none" stroke="${css('--series-1')}" stroke-width="2" stroke-linejoin="round"/>`;
+    // Étiquette directe sur le dernier point
+    const li = scores.length - 1;
+    parts += `<circle cx="${x(li)}" cy="${y(scores[li])}" r="4" fill="${css('--series-1')}" stroke="${css('--surface-1')}" stroke-width="2"/>`;
+    // Calques de survol : réticule + point mis en évidence
+    parts += `<line id="crosshair" y1="${m.top}" y2="${H - m.bottom}" stroke="${css('--baseline')}" stroke-width="1" style="display:none"/>`;
+    parts += `<circle id="hoverdot" r="4" fill="${css('--series-1')}" stroke="${css('--surface-1')}" stroke-width="2" style="display:none"/>`;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.innerHTML = parts;
+
+    svg.onmousemove = (ev) => {
+      const rect = svg.getBoundingClientRect();
+      const px = ev.clientX - rect.left;
+      const i = Math.max(0, Math.min(dates.length - 1,
+        Math.round((px - m.left) / (iw || 1) * (dates.length - 1))));
+      const cx = x(i), cy = y(scores[i]);
+      const crosshair = svg.querySelector("#crosshair");
+      const dot = svg.querySelector("#hoverdot");
+      crosshair.setAttribute("x1", cx); crosshair.setAttribute("x2", cx);
+      crosshair.style.display = "";
+      dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+      dot.style.display = "";
+      tooltip.style.display = "block";
+      tooltip.innerHTML = `<span class="tt-date">${dates[i]}</span><br><strong>${scores[i].toFixed(1)}</strong>/100`;
+      const left = Math.min(cx + 12, W - tooltip.offsetWidth - 4);
+      tooltip.style.left = left + "px";
+      tooltip.style.top = Math.max(0, cy - 40) + "px";
+    };
+    svg.onmouseleave = () => {
+      tooltip.style.display = "none";
+      svg.querySelector("#crosshair").style.display = "none";
+      svg.querySelector("#hoverdot").style.display = "none";
+    };
+  }
+  draw();
+  window.addEventListener("resize", draw);
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+
+  document.querySelector("#data-table tbody").innerHTML =
+    dates.map((d, i) => `<tr><td>${d}</td><td>${scores[i].toFixed(1)}</td></tr>`).join("");
+</script>
+</body>
+</html>

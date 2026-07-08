@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "marketsignal"
-version = "0.1.0"
+version = "0.2.0"
 description = "Anticipation des crises de marché pour les entreprises : indicateurs d'alerte précoce, score de risque et modèle prédictif."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -159,6 +159,15 @@ marketsignal/
 - Longin, F. & Solnik, B. (2001). *Extreme Correlation of International Equity Markets*. Journal of Finance, 56(2).
 - Benigno, G., di Giovanni, J., Groen, J. & Noble, A. (2022). *The GSCPI: A New Barometer of Global Supply Chain Pressures*. Federal Reserve Bank of New York Staff Reports, n° 1017 — <https://www.newyorkfed.org/research/policy/gscpi>
 
+## Suivi du projet
+
+- **[ROADMAP.md](ROADMAP.md)** — vision et jalons (v0.3 : données réelles ; v0.4 :
+  rigueur statistique ; v0.5 : exploitation ; v1.0 : production).
+- **[SUIVI.md](SUIVI.md)** — tableau de bord des actions, journal et limites connues.
+- **[CHANGELOG.md](CHANGELOG.md)** — historique des versions.
+- **[Issues GitHub](https://github.com/faycaltaha/MarketSignal/issues)** — suivi
+  opérationnel de chaque chantier.
+
 ## Avertissement
 
 MarketSignal est un outil d'aide à la décision : il fournit des probabilités et des signaux,

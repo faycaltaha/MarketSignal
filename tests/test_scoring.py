@@ -19,6 +19,11 @@ def test_risk_score_calm_vs_crisis():
             "drawdown": [-0.01],
             "momentum": [0.05],
             "mean_correlation": [0.2],
+            "turbulence_pct": [0.3],
+            "absorption_shift": [-0.5],
+            "downside_correlation": [0.2],
+            "correlation_asymmetry": [-0.05],
+            "granger_density": [0.05],
         },
         index=pd.to_datetime(["2024-01-01"]),
     )
@@ -29,6 +34,11 @@ def test_risk_score_calm_vs_crisis():
             "drawdown": [-0.30],
             "momentum": [-0.25],
             "mean_correlation": [0.95],
+            "turbulence_pct": [1.0],
+            "absorption_shift": [2.5],
+            "downside_correlation": [0.95],
+            "correlation_asymmetry": [0.35],
+            "granger_density": [0.7],
         },
         index=pd.to_datetime(["2024-01-01"]),
     )

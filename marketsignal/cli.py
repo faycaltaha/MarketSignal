@@ -20,6 +20,11 @@ INDICATOR_LABELS = {
     "drawdown": "Drawdown depuis le pic (1 an)",
     "momentum": "Momentum (60j)",
     "mean_correlation": "Corrélation moyenne (60j)",
+    "turbulence_pct": "Turbulence (percentile 1 an)",
+    "absorption_shift": "Choc d'absorption (σ)",
+    "downside_correlation": "Corrélation baissière",
+    "correlation_asymmetry": "Asymétrie de corrélation",
+    "granger_density": "Densité de contagion (Granger)",
 }
 
 
@@ -93,6 +98,18 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     print("  Alertes :")
     for alert in evaluate_alerts(snapshot, crisis_probability=proba):
         print(f"    [{alert.severity.upper():<8}] {alert.message}")
+
+    from .weak_signals import lead_lag_matrix
+
+    relations = lead_lag_matrix(prices)
+    if not relations.empty:
+        relations = relations[relations["correlation"].abs() >= 0.1].head(5)
+    if not relations.empty:
+        print()
+        print("  Signaux faibles — relations avance/retard (250 derniers jours) :")
+        for _, row in relations.iterrows():
+            print(f"    {row['leader']} mène {row['follower']} de {row['lag_days']}j "
+                  f"(corrélation {row['correlation']:+.2f})")
 
 
 def _cmd_train(args: argparse.Namespace) -> None:

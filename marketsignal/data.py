@@ -44,14 +44,20 @@ def generate_demo_prices(
     n_assets: int = 4,
     seed: int = 42,
     crisis_probability: float = 0.004,
+    lead_lag_days: int = 3,
 ) -> pd.DataFrame:
     """Génère des prix synthétiques avec des régimes de crise incorporés.
 
     Le marché alterne entre un régime calme (dérive positive, faible
     volatilité, corrélations modérées) et des épisodes de crise (dérive
     négative, volatilité triplée, corrélations proches de 1) déclenchés
-    aléatoirement et durant 20 à 60 jours. Cela permet de démontrer et de
-    tester le logiciel hors ligne sur des données au comportement réaliste.
+    aléatoirement et durant 20 à 60 jours.
+
+    Le premier actif (``actif_A``) joue le rôle d'une série *amont* de
+    chaîne d'approvisionnement (par exemple un indice de fret) : il entre
+    en crise ``lead_lag_days`` jours avant les autres, ce qui incorpore
+    une structure avance/retard détectable par les signaux faibles
+    (lead-lag, causalité de Granger).
     """
     rng = np.random.default_rng(seed)
     dates = pd.bdate_range("2020-01-01", periods=n_days)
@@ -59,9 +65,10 @@ def generate_demo_prices(
     calm_drift, calm_vol, calm_corr = 0.0004, 0.010, 0.35
     crisis_drift, crisis_vol, crisis_corr = -0.004, 0.032, 0.85
 
+    # Régime de la série amont (meneuse), les autres suivent avec retard.
+    leader_flags = np.zeros(n_days, dtype=bool)
     in_crisis = False
     crisis_days_left = 0
-    returns = np.zeros((n_days, n_assets))
     for t in range(n_days):
         if in_crisis:
             crisis_days_left -= 1
@@ -70,14 +77,23 @@ def generate_demo_prices(
         elif rng.random() < crisis_probability:
             in_crisis = True
             crisis_days_left = int(rng.integers(20, 61))
+        leader_flags[t] = in_crisis
 
-        drift = crisis_drift if in_crisis else calm_drift
-        vol = crisis_vol if in_crisis else calm_vol
-        corr = crisis_corr if in_crisis else calm_corr
+    flags = np.zeros((n_days, n_assets), dtype=bool)
+    flags[:, 0] = leader_flags
+    if n_assets > 1 and lead_lag_days > 0:
+        flags[lead_lag_days:, 1:] = leader_flags[:-lead_lag_days, None]
+    else:
+        flags[:, 1:] = leader_flags[:, None]
 
-        cov = np.full((n_assets, n_assets), corr) * vol**2
-        np.fill_diagonal(cov, vol**2)
-        returns[t] = rng.multivariate_normal(np.full(n_assets, drift), cov)
+    returns = np.zeros((n_days, n_assets))
+    for t in range(n_days):
+        vols = np.where(flags[t], crisis_vol, calm_vol)
+        drifts = np.where(flags[t], crisis_drift, calm_drift)
+        corr = crisis_corr if flags[t].any() else calm_corr
+        cov = corr * np.outer(vols, vols)
+        np.fill_diagonal(cov, vols**2)
+        returns[t] = rng.multivariate_normal(drifts, cov)
 
     prices = 100.0 * np.exp(np.cumsum(returns, axis=0))
     columns = [f"actif_{chr(ord('A') + i)}" for i in range(n_assets)]

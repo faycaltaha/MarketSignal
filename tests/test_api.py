@@ -28,10 +28,22 @@ def test_risk_score(client):
 
 
 def test_risk_indicators(client):
+    from marketsignal.indicators import INDICATOR_COLUMNS
+
     body = client.get("/risk/indicators").json()
-    assert set(body["indicators"]) == {
-        "volatility", "vol_shock_ratio", "drawdown", "momentum", "mean_correlation",
-    }
+    assert set(body["indicators"]) == set(INDICATOR_COLUMNS)
+
+
+def test_lead_lag_endpoint(client):
+    body = client.get("/risk/lead-lag").json()
+    assert "relations" in body
+    for rel in body["relations"]:
+        assert {"leader", "follower", "lag_days", "correlation"} <= set(rel)
+
+
+def test_lead_lag_min_correlation_filter(client):
+    body = client.get("/risk/lead-lag", params={"min_correlation": 0.99}).json()
+    assert all(abs(r["correlation"]) >= 0.99 for r in body["relations"])
 
 
 def test_risk_alerts(client):

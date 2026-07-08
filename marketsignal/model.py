@@ -22,12 +22,12 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
-from .indicators import compute_indicators
+from .indicators import INDICATOR_COLUMNS, compute_indicators
 
 DEFAULT_HORIZON = 30       # jours de bourse
 DEFAULT_THRESHOLD = -0.10  # drawdown de 10 %
 
-FEATURES = ["volatility", "vol_shock_ratio", "drawdown", "momentum", "mean_correlation"]
+FEATURES = list(INDICATOR_COLUMNS)
 
 
 def label_crises(

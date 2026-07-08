@@ -120,6 +120,25 @@
   <h2 style="font-size:14px;font-weight:600;margin-top:20px;">Alertes</h2>
   <div class="alerts" id="alerts"></div>
 
+  <div class="card chart-card" id="leadlag-card" style="display:none">
+    <h2>Signaux faibles — qui mène qui ?</h2>
+    <p class="subtitle" style="margin-bottom:10px">
+      Relations avance/retard sur les 250 derniers jours : surveiller la série meneuse
+      donne le délai indiqué d'avance sur la série suiveuse.
+    </p>
+    <div style="overflow-x:auto">
+      <table id="leadlag-table" style="border-collapse:collapse;font-size:13px;width:100%">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--gridline);color:var(--text-secondary);font-weight:600">Série meneuse</th>
+          <th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--gridline);color:var(--text-secondary);font-weight:600">Série suiveuse</th>
+          <th style="text-align:right;padding:6px 10px;border-bottom:1px solid var(--gridline);color:var(--text-secondary);font-weight:600">Avance</th>
+          <th style="text-align:right;padding:6px 10px;border-bottom:1px solid var(--gridline);color:var(--text-secondary);font-weight:600">Corrélation</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
 <script>
   const DATA = __PAYLOAD__;
 
@@ -137,6 +156,10 @@
     { label: "Volatilité annualisée", value: (DATA.indicators.volatility * 100).toFixed(1) + " %", hint: "Fenêtre 20 jours" },
     { label: "Drawdown depuis le pic", value: (DATA.indicators.drawdown * 100).toFixed(1) + " %", hint: "Plus haut sur 1 an" },
     { label: "Corrélation moyenne", value: DATA.indicators.mean_correlation.toFixed(2), hint: "Entre actifs, 60 jours" },
+    { label: "Turbulence statistique", value: (DATA.indicators.turbulence_pct * 100).toFixed(0) + "ᵉ pct.", hint: "Distance de Mahalanobis (Kritzman & Li)" },
+    { label: "Choc d'absorption", value: (DATA.indicators.absorption_shift >= 0 ? "+" : "") + DATA.indicators.absorption_shift.toFixed(1) + " σ", hint: "Fragilité systémique (Kritzman et al.)" },
+    { label: "Asymétrie baissière", value: DATA.indicators.correlation_asymmetry.toFixed(2), hint: "Corr. baisse − hausse (Ang & Chen)" },
+    { label: "Densité de contagion", value: (DATA.indicators.granger_density * 100).toFixed(0) + " %", hint: "Réseau de Granger (Billio et al.)" },
   ];
   document.getElementById("tiles").innerHTML = tiles.map(t =>
     `<div class="card"><div class="label">${t.label}</div><div class="value">${t.value}</div><div class="hint">${t.hint}</div></div>`
@@ -146,6 +169,18 @@
   document.getElementById("alerts").innerHTML = DATA.alerts.map(a =>
     `<div class="alert ${a.severity}"><span class="sev">⚠ ${SEV_LABEL[a.severity] || a.severity}</span><span>${a.message}</span></div>`
   ).join("");
+
+  if (DATA.lead_lag && DATA.lead_lag.length) {
+    document.getElementById("leadlag-card").style.display = "";
+    document.querySelector("#leadlag-table tbody").innerHTML = DATA.lead_lag.map(r =>
+      `<tr>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--gridline)">${r.leader}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--gridline)">${r.follower}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--gridline);text-align:right;font-variant-numeric:tabular-nums">${r.lag_days} j</td>
+        <td style="padding:6px 10px;border-bottom:1px solid var(--gridline);text-align:right;font-variant-numeric:tabular-nums">${r.correlation.toFixed(2)}</td>
+      </tr>`
+    ).join("");
+  }
 
   // ---- Graphique en ligne (série unique : pas de légende, le titre la nomme) ----
   const svg = document.getElementById("chart");

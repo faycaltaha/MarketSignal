@@ -66,6 +66,38 @@ def evaluate_alerts(snapshot: RiskSnapshot, crisis_probability: float | None = N
             "la diversification ne protège plus, signe de stress systémique.",
         ))
 
+    if ind.get("turbulence_pct", 0) >= 0.95:
+        alerts.append(Alert(
+            "warning", "TURBULENCE",
+            f"Turbulence statistique au {ind['turbulence_pct']:.0%} percentile annuel : "
+            "les co-mouvements du jour sont anormaux même si la volatilité paraît "
+            "normale (signal faible précoce, Kritzman & Li).",
+        ))
+
+    if ind.get("absorption_shift", 0) >= 1.0:
+        alerts.append(Alert(
+            "warning", "FRAGILITE_SYSTEMIQUE",
+            f"Choc d'absorption de +{ind['absorption_shift']:.1f} écart-type : les "
+            "séries suivies s'unifient autour d'un facteur commun, le système "
+            "devient fragile à un choc local (Kritzman et al., 2011).",
+        ))
+
+    if ind.get("correlation_asymmetry", 0) >= 0.15:
+        alerts.append(Alert(
+            "warning", "ASYMETRIE_BAISSIERE",
+            f"Asymétrie de corrélation de {ind['correlation_asymmetry']:.2f} : les "
+            "actifs chutent ensemble plus qu'ils ne montent ensemble, configuration "
+            "typique de pré-crise (Ang & Chen, 2002).",
+        ))
+
+    if ind.get("granger_density", 0) >= 0.4:
+        alerts.append(Alert(
+            "warning", "CONTAGION",
+            f"Densité du réseau de causalité à {ind['granger_density']:.0%} : des "
+            "canaux de contagion s'ouvrent entre les maillons suivis — un choc amont "
+            "se propagera vite en aval (Billio et al., 2012).",
+        ))
+
     if not alerts:
         alerts.append(Alert(
             "info", "RAS",

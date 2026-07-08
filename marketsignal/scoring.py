@@ -14,21 +14,37 @@ import numpy as np
 import pandas as pd
 
 # (borne calme, borne crise) : en dessous de la borne calme la contribution
-# vaut 0, au-dessus de la borne crise elle vaut 1.
+# vaut 0, au-dessus de la borne crise elle vaut 1. Les bornes des signaux
+# faibles suivent les seuils documentés dans la littérature (cf.
+# weak_signals.py) : un choc d'absorption > 1 écart-type précède la
+# majorité des drawdowns sévères (Kritzman et al., 2011), une asymétrie
+# de corrélation nettement positive précède les retournements (Ang &
+# Chen, 2002), une densité de Granger croissante précède la contagion
+# (Billio et al., 2012).
 INDICATOR_BOUNDS: dict[str, tuple[float, float]] = {
-    "volatility": (0.10, 0.45),        # vol annualisée 10 % -> 45 %
-    "vol_shock_ratio": (1.0, 2.5),     # vol courte = vol longue -> 2.5x
-    "drawdown": (-0.03, -0.20),        # -3 % -> -20 % depuis le pic
-    "momentum": (0.0, -0.15),          # momentum 60j nul -> -15 %
-    "mean_correlation": (0.35, 0.85),  # corrélation moyenne 0.35 -> 0.85
+    "volatility": (0.10, 0.45),            # vol annualisée 10 % -> 45 %
+    "vol_shock_ratio": (1.0, 2.5),         # vol courte = vol longue -> 2.5x
+    "drawdown": (-0.03, -0.20),            # -3 % -> -20 % depuis le pic
+    "momentum": (0.0, -0.15),              # momentum 60j nul -> -15 %
+    "mean_correlation": (0.35, 0.85),      # corrélation moyenne 0.35 -> 0.85
+    "turbulence_pct": (0.70, 0.98),        # percentile de turbulence sur 1 an
+    "absorption_shift": (0.0, 2.0),        # choc d'absorption en écarts-types
+    "downside_correlation": (0.35, 0.85),  # corrélation des jours de baisse
+    "correlation_asymmetry": (0.0, 0.25),  # baissière − haussière
+    "granger_density": (0.10, 0.50),       # fraction de paires causales
 }
 
 WEIGHTS: dict[str, float] = {
-    "volatility": 0.25,
-    "vol_shock_ratio": 0.20,
-    "drawdown": 0.25,
-    "momentum": 0.15,
-    "mean_correlation": 0.15,
+    "volatility": 0.14,
+    "vol_shock_ratio": 0.10,
+    "drawdown": 0.14,
+    "momentum": 0.08,
+    "mean_correlation": 0.08,
+    "turbulence_pct": 0.12,
+    "absorption_shift": 0.12,
+    "downside_correlation": 0.08,
+    "correlation_asymmetry": 0.07,
+    "granger_density": 0.07,
 }
 
 RISK_LEVELS: list[tuple[float, str]] = [

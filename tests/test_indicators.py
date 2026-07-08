@@ -13,12 +13,13 @@ from marketsignal.indicators import (
 
 
 def test_compute_indicators_columns_and_no_nan(demo_prices):
+    from marketsignal.indicators import INDICATOR_COLUMNS
+
     ind = compute_indicators(demo_prices)
-    assert list(ind.columns) == [
-        "volatility", "vol_shock_ratio", "drawdown", "momentum", "mean_correlation",
-    ]
+    assert list(ind.columns) == INDICATOR_COLUMNS
     assert not ind.isna().any().any()
-    assert len(ind) > 900  # seules les fenêtres initiales sont perdues
+    # Les fenêtres initiales (turbulence 120j + percentile 252j) sont perdues.
+    assert len(ind) > 700
 
 
 def test_drawdown_is_nonpositive(demo_prices):

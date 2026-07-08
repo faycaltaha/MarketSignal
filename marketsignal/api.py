@@ -18,6 +18,7 @@ from .data import load_prices
 from .indicators import compute_indicators
 from .model import CrisisModel
 from .scoring import latest_snapshot, risk_score
+from .weak_signals import lead_lag_matrix
 
 _DASHBOARD_TEMPLATE = (Path(__file__).parent / "dashboard.html").read_text()
 
@@ -66,6 +67,16 @@ def create_app(prices_path: str | Path, model_path: str | Path | None = None) ->
             "scores": [float(s) for s in scores],
         }
 
+    @app.get("/risk/lead-lag")
+    def lead_lag(min_correlation: float = Query(default=0.1, ge=0.0, le=1.0)) -> dict:
+        matrix = lead_lag_matrix(prices)
+        if not matrix.empty:
+            matrix = matrix[matrix["correlation"].abs() >= min_correlation]
+        return {
+            "window_days": 250,
+            "relations": matrix.to_dict(orient="records"),
+        }
+
     @app.get("/predict")
     def predict() -> dict:
         proba = float(model.predict_proba(indicators.tail(1)).iloc[-1])
@@ -86,6 +97,9 @@ def create_app(prices_path: str | Path, model_path: str | Path | None = None) ->
         proba = float(model.predict_proba(indicators.tail(1)).iloc[-1])
         alerts = evaluate_alerts(snap, crisis_probability=proba)
         scores = risk_score(indicators).tail(180)
+        relations = lead_lag_matrix(prices)
+        if not relations.empty:
+            relations = relations[relations["correlation"].abs() >= 0.1].head(6)
 
         import json
 
@@ -96,6 +110,7 @@ def create_app(prices_path: str | Path, model_path: str | Path | None = None) ->
             "probability": round(proba, 4),
             "indicators": snap.indicators,
             "alerts": [asdict(a) for a in alerts],
+            "lead_lag": relations.to_dict(orient="records"),
             "history": {
                 "dates": [str(d.date()) for d in scores.index],
                 "scores": [float(s) for s in scores],

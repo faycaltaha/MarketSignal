@@ -81,13 +81,33 @@ def mean_cross_correlation(
     return mean_corr.reindex(returns.index)
 
 
+# Ordre canonique des indicateurs : indicateurs classiques puis signaux
+# faibles (voir weak_signals.py pour les références académiques).
+INDICATOR_COLUMNS = [
+    "volatility",
+    "vol_shock_ratio",
+    "drawdown",
+    "momentum",
+    "mean_correlation",
+    "turbulence_pct",
+    "absorption_shift",
+    "downside_correlation",
+    "correlation_asymmetry",
+    "granger_density",
+]
+
+
 def compute_indicators(prices: pd.DataFrame) -> pd.DataFrame:
     """Calcule tous les indicateurs et les aligne dans un DataFrame.
 
-    Colonnes : ``volatility``, ``vol_shock_ratio``, ``drawdown``,
-    ``momentum``, ``mean_correlation``. Les premières lignes (fenêtres
+    Colonnes : :data:`INDICATOR_COLUMNS` — indicateurs classiques
+    (volatilité, drawdown, momentum, corrélation moyenne) et signaux
+    faibles (turbulence, choc d'absorption, corrélation baissière,
+    asymétrie, densité de Granger). Les premières lignes (fenêtres
     incomplètes) sont supprimées.
     """
+    from .weak_signals import compute_weak_signals
+
     returns = portfolio_returns(prices)
     out = pd.DataFrame(
         {
@@ -98,4 +118,5 @@ def compute_indicators(prices: pd.DataFrame) -> pd.DataFrame:
             "mean_correlation": mean_cross_correlation(prices),
         }
     )
-    return out.dropna()
+    out = out.join(compute_weak_signals(prices))
+    return out[INDICATOR_COLUMNS].dropna()
